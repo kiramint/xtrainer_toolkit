@@ -1,0 +1,16 @@
+{
+  "arm_left": {
+    "name": "Arm1 (Left)",
+    "ip": "192.168.5.1",
+    "port": 29999,
+    "motion_port": 30003,
+    "gripper": { "port": "/dev/ttyUSB1", "motor_id": 21 }
+  },
+  "arm_right": {
+    "name": "Arm2 (Right)",
+    "ip": "192.168.5.2",
+    "port": 29999,
+    "motion_port": 30003,
+    "gripper": { "port": "/dev/ttyUSB0", "motor_id": 22 }
+  }
+}
