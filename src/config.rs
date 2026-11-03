@@ -15,7 +15,19 @@ pub struct ArmConfig {
     /// 仪表板端口 (默认 29999)
     #[serde(default = "default_port")]
     pub port: u16,
+    #[serde(default = "default_motion_port")]
+    pub motion_port: u16,
+    #[serde(default)]
+    pub gripper: Option<GripperConfig>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GripperConfig {
+    pub port: String,
+    pub motor_id: u8,
+}
+
+fn default_motion_port() -> u16 { 30003 }
 
 fn default_port() -> u16 {
     DEFAULT_DASHBOARD_PORT
@@ -37,11 +49,15 @@ impl Default for Config {
                 name: "Arm1 (Left)".into(),
                 ip: "192.168.5.1".parse().unwrap(),
                 port: DEFAULT_DASHBOARD_PORT,
+                motion_port: 30003,
+                gripper: None,
             },
             arm_right: ArmConfig {
                 name: "Arm2 (Right)".into(),
                 ip: "192.168.5.2".parse().unwrap(),
                 port: DEFAULT_DASHBOARD_PORT,
+                motion_port: 30003,
+                gripper: None,
             },
         }
     }
@@ -120,4 +136,22 @@ pub fn load_config(path: Option<&str>) -> Result<Config> {
 
 fn default_config_path() -> Option<std::path::PathBuf> {
     dirs::config_dir().map(|d| d.join("xtk").join("config.json"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn old_config_remains_compatible() {
+        let cfg: Config = serde_json::from_str(r#"{"arm_left":{"name":"L","ip":"192.168.5.1"},"arm_right":{"name":"R","ip":"192.168.5.2"}}"#).unwrap();
+        assert_eq!(cfg.arm_left.motion_port, 30003);
+        assert_eq!(cfg.arm_right.port, 29999);
+        assert!(cfg.arm_left.gripper.is_none());
+    }
+    #[test]
+    fn example_has_gripper_settings() {
+        let cfg: Config = serde_json::from_str(include_str!("../config.example.json")).unwrap();
+        assert_eq!(cfg.arm_left.gripper.unwrap().motor_id, 21);
+        assert_eq!(cfg.arm_right.gripper.unwrap().motor_id, 22);
+    }
 }

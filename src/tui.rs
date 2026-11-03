@@ -126,6 +126,7 @@ pub async fn run_tui(cfg: &Config) -> Result<()> {
             if poll_state.lock().unwrap().should_quit {
                 break;
             }
+            if poll_state.lock().unwrap().busy { continue; }
             query_arm_state(&poll_state, &poll_cfg, ArmTarget::Left).await;
             query_arm_state(&poll_state, &poll_cfg, ArmTarget::Right).await;
         }
@@ -312,6 +313,16 @@ async fn dispatch_key(
     }
 
     match code {
+        KeyCode::Char('r') => {
+            state.lock().unwrap().add_log("双臂关节复位并张开夹爪中...");
+            let result = crate::reset::run(&cfg, ArmTarget::Both, false).await;
+            let mut s = state.lock().unwrap();
+            match result {
+                Ok(()) => s.add_log("双臂关节复位完成"),
+                Err(e) => s.add_log(&format!("复位失败: {e}")),
+            }
+            s.busy = false;
+        }
         KeyCode::Char('h') => {
             let mut s = state.lock().unwrap();
             s.add_log("帮助: 快捷键见界面底部");
@@ -546,6 +557,7 @@ fn render_ui(frame: &mut Frame, state: &Arc<Mutex<AppState>>) {
         Line::from(vec![
             span_key("s"), Span::raw("一键启动  "),
             span_key("x"), Span::raw("一键停止  "),
+            span_key("r"), Span::raw("双臂复位  "),
             Span::raw("  Ctrl+C 强制退出"),
         ]),
     ];

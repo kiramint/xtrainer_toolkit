@@ -1,4 +1,6 @@
 mod config;
+mod reset;
+mod gripper;
 mod protocol;
 mod tui;
 
@@ -22,6 +24,14 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// 返回 XVLA 默认关节姿态并张开夹爪
+    Reset {
+        #[arg(short, long, default_value = "both")]
+        arm: String,
+        /// 仅显示目标，不连接机械臂
+        #[arg(long)]
+        dry_run: bool,
+    },
     /// 机械臂上电
     PowerOn {
         /// 目标机械臂: left, right, both
@@ -91,7 +101,7 @@ async fn run_command(cmd: Commands, cfg: &config::Config) -> Result<()> {
     let arm = match &cmd {
         PowerOn { arm } | Enable { arm } | Disable { arm }
         | ClearError { arm } | StartDrag { arm } | StopDrag { arm }
-        | QuickStart { arm } | QuickStop { arm } => {
+        | QuickStart { arm } | QuickStop { arm } | Reset { arm, .. } => {
             ArmTarget::from_str(arm)?
         }
     };
@@ -99,6 +109,10 @@ async fn run_command(cmd: Commands, cfg: &config::Config) -> Result<()> {
     let arms = cfg.resolve_arms(arm);
 
     match cmd {
+        Reset { dry_run, .. } => {
+            reset::run(cfg, arm, dry_run).await?;
+            if !dry_run { println!("复位完成"); }
+        }
         PowerOn { .. } => {
             for a in &arms {
                 let mut conn = protocol::DashboardConnection::connect(a.ip, a.port).await?;

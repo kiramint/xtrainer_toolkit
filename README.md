@@ -44,6 +44,34 @@ xtk -c /path/to/config.json <command>
 
 ## CLI 使用
 
+### Reset：关节复位并张开夹爪
+
+参照 X-Trainer-XVLA 的 `run_real.py → smooth_reset → ServoJ` 与 Feetech
+SMS/STS 串口协议实现。使用 `GetAngle()` 读取当前关节位置，再通过运动端口
+30003 发送角度制 `ServoJ(...,0.030000,gain=500)`。姿态沿用该项目的弧度值：
+左臂 `[-1.57,0,-1.57,0,1.57,1.57]`，右臂 `[1.57,0,1.57,0,-1.57,-1.57]`。
+夹爪从当前位置逐步张开至 3052（参考标定范围 2048–3052，串口速率 1000000）。
+
+复制 `config.example.json` 为 `config.json`，将示例 COM3/COM4 改成实际串口。
+Linux 对应参考默认串口为左 `/dev/ttyUSB1`、右 `/dev/ttyUSB0`，需要串口读写权限。
+旧配置兼容原有操作，但 reset 必须补齐 `gripper.port`、`gripper.motor_id`。
+`motion_port` 省略时为 30003。运行前确认参考姿态、夹爪标定和路径适合当前设备。
+reset 要求机械臂已使能且空闲，不会自动上电或清除报警。
+
+```powershell
+cargo build --release --locked
+# 仅查看目标，不连接硬件
+.\target\release\xtrainer_toolkit.exe -c .\config.json reset --dry-run
+# 执行双臂复位；也可指定 --arm left 或 --arm right
+.\target\release\xtrainer_toolkit.exe -c .\config.json reset --arm both
+```
+
+交互界面按 `r` 执行双臂复位并张开夹爪，沿用操作互斥机制。
+插值沿用参考默认步长 0.01、最多 100 点（步数封顶意味着 0.01 不是硬性速度限制），
+每轮额外等待 30ms；本实现不依赖 Python、摄像头或策略服务器。
+指令返回错误即停止后续发送，完成后查询关节和夹爪位置确认到达。
+这不是碰撞检测或硬件急停；退出程序也不等同于停止控制器已接受的运动。
+
 ```bash
 # 单条命令
 xtk power-on --arm left       # 左臂上电（含轮询等待）

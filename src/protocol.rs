@@ -18,9 +18,9 @@ pub struct DashboardConnection {
 
 impl DashboardConnection {
     pub async fn connect(ip: IpAddr, port: u16) -> Result<Self> {
-        let addr = format!("{}:{}", ip, port);
-        let stream = TcpStream::connect(&addr)
-            .await
+        let addr = std::net::SocketAddr::new(ip, port);
+        let stream = tokio::time::timeout(Duration::from_secs(5), TcpStream::connect(addr))
+            .await.context("TCP 连接超时 (5s)")?
             .with_context(|| format!("无法连接到机械臂 Dashboard: {}", addr))?;
         let (rx, tx) = stream.into_split();
         Ok(Self { reader: rx, writer: tx })
@@ -53,7 +53,7 @@ impl DashboardConnection {
                 buf.resize(buf.len() + 256, 0);
             }
             let n = self.reader.read(&mut buf[offset..offset + 1]).await?;
-            if n == 0 { break; }
+            if n == 0 { return Err(anyhow::anyhow!("连接关闭，未收到完整响应")); }
             offset += n;
             if buf[offset - 1] == b';' { break; }
         }
